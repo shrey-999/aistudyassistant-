@@ -1,40 +1,73 @@
+from flask import Flask, request, render_template_string
 import os
 from dotenv import load_dotenv
 import google.generativeai as genai
 
 load_dotenv()
 
-api_key = os.getenv("GEMINI_API_KEY")
-genai.configure(api_key=api_key)
-
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 model = genai.GenerativeModel("gemini-2.5-flash")
 
-print("\nAI Study Assistant")
-print("1. Explain a concept")
-print("2. Summarize text")
-print("3. Generate quiz questions")
+app = Flask(__name__)
 
-feature = input("\nSelect an option: ")
-user_text = input("Enter your text: ")
+HTML = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Study Assistant</title>
+</head>
+<body>
+    <h1>AI Study Assistant</h1>
 
-if user_text.strip() == "":
-    print("Please enter some text.")
-    quit()
+    <form method="POST">
+        <select name="feature">
+            <option value="1">Explain Concept</option>
+            <option value="2">Summarize Text</option>
+            <option value="3">Generate Quiz Questions</option>
+        </select>
 
-if feature == "1":
-    prompt = f"Explain the following concept in simple terms:\n\n{user_text}"
+        <br><br>
 
-elif feature == "2":
-    prompt = f"Summarize the following text into 5 bullet points:\n\n{user_text}"
+        <textarea name="text" rows="10" cols="60"></textarea>
 
-elif feature == "3":
-    prompt = f"Create 5 quiz questions based on:\n\n{user_text}"
+        <br><br>
 
-else:
-    print("Invalid option selected.")
-    quit()
+        <button type="submit">Generate</button>
+    </form>
 
-response = model.generate_content(prompt)
+    {% if result %}
+    <h2>Response</h2>
+    <pre>{{ result }}</pre>
+    {% endif %}
+</body>
+</html>
+"""
 
-print("\nResponse:\n")
-print(response.text)
+@app.route("/", methods=["GET", "POST"])
+def home():
+    result = ""
+
+    if request.method == "POST":
+        text = request.form["text"]
+        feature = request.form["feature"]
+
+        if text.strip():
+
+            if feature == "1":
+                prompt = f"Explain this concept simply:\n{text}"
+
+            elif feature == "2":
+                prompt = f"Summarize this in 5 bullet points:\n{text}"
+
+            else:
+                prompt = f"Generate 5 quiz questions about:\n{text}"
+
+            result = model.generate_content(prompt).text
+
+        else:
+            result = "Please enter some text."
+
+    return render_template_string(HTML, result=result)
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
